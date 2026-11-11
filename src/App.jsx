@@ -334,7 +334,7 @@ export default function App() {
       {/* Botón Flotante Minimalista */}
       <button 
         onClick={() => setModalGasto(true)} 
-        className="fixed bottom-6 right-6 bg-slate-800 hover:bg-slate-900 text-white p-4 rounded-full shadow-lg transition-transform active:scale-95 flex items-center justify-center z-20">
+        className="sticky bottom-6 left-[calc(100%-4rem)] bg-slate-800 hover:bg-slate-900 text-white p-4 rounded-full shadow-lg transition-transform active:scale-95 flex items-center justify-center z-20 ml-auto">
         <Plus size={24} />
       </button>
 
