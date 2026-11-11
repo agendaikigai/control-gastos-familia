@@ -4,7 +4,7 @@ import { CATEGORIAS_DEFECTO } from './seedData'
 import { 
   Plus, Users, DollarSign, PieChart as PieChartIcon, 
   ArrowRightLeft, LogOut, Car, ShoppingCart, 
-  GraduationCap, Utensils, BookOpen, Pizza, Home, HeartPulse 
+  GraduationCap, Utensils, BookOpen, Pizza, Home, HeartPulse, Calendar, TrendingUp 
 } from 'lucide-react'
 
 const ICON_MAP = {
@@ -25,6 +25,10 @@ export default function App() {
   const [categorias, setCategorias] = useState([])
   const [integrantes, setIntegrantes] = useState([])
   const [tab, setTab] = useState('resumen')
+
+  // Mes seleccionado para filtrar (Formato YYYY-MM). Por defecto el mes actual.
+  const mesActualStr = new Date().toISOString().slice(0, 7)
+  const [mesSeleccionado, setMesSeleccionado] = useState(mesActualStr)
 
   const [modalGasto, setModalGasto] = useState(false)
   const [monto, setMonto] = useState('')
@@ -145,17 +149,35 @@ export default function App() {
     cargarGastos()
   }
 
-  const totalGeneral = gastos.reduce((sum, g) => sum + Number(g.monto), 0)
+  // Filtrar gastos del mes seleccionado actualmente en la vista principal
+  const gastosMesSeleccionado = gastos.filter(g => g.fecha && g.fecha.startsWith(mesSeleccionado))
+
+  const totalGeneral = gastosMesSeleccionado.reduce((sum, g) => sum + Number(g.monto), 0)
   const cuotaPorPersona = integrantes.length ? totalGeneral / integrantes.length : 0
 
   const balances = integrantes.map(int => {
-    const pagado = gastos
+    const pagado = gastosMesSeleccionado
       .filter(g => g.pagado_por === int.id)
       .reduce((sum, g) => sum + Number(g.monto), 0)
     return { ...int, pagado, balance: pagado - cuotaPorPersona }
   })
 
-  // Pantalla de Ingreso / Login Pastel
+  // Obtener los últimos 3 meses para el resumen comparativo
+  function obtenerUltimosTresMeses() {
+    const meses = []
+    const fechaBase = new Date()
+    for (let i = 0; i < 3; i++) {
+      const anio = fechaBase.getFullYear()
+      const mes = String(fechaBase.getMonth() + 1).padStart(2, '0')
+      meses.push(`${anio}-${mes}`)
+      fechaBase.setMonth(fechaBase.getMonth() - 1)
+    }
+    return meses
+  }
+
+  const ultimos3Meses = obtenerUltimosTresMeses()
+
+  // Pantalla de Ingreso / Login
   if (!grupo || !miembro) {
     return (
       <div className="min-h-screen bg-slate-100 text-slate-800 flex items-center justify-center p-4">
@@ -223,7 +245,7 @@ export default function App() {
     )
   }
 
-  // Interfaz Principal Pastel
+  // Interfaz Principal
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 pb-24 max-w-md mx-auto relative border-x border-slate-200/60 shadow-sm">
       {/* Header */}
@@ -236,6 +258,19 @@ export default function App() {
           <LogOut size={18} />
         </button>
       </header>
+
+      {/* Selector de Mes Global */}
+      <div className="bg-white px-4 py-2.5 border-b border-slate-200/60 flex items-center justify-between">
+        <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+          <Calendar size={14} /> Mes activo:
+        </span>
+        <input 
+          type="month" 
+          value={mesSeleccionado} 
+          onChange={e => setMesSeleccionado(e.target.value)}
+          className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1 text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-300"
+        />
+      </div>
 
       {/* Tabs */}
       <div className="flex border-b border-slate-200/60 bg-white">
@@ -252,9 +287,9 @@ export default function App() {
 
       {/* Cuerpo */}
       <div className="p-4 space-y-4">
-        {/* Total General Card Pastel */}
+        {/* Total General Card */}
         <div className="bg-white p-5 rounded-3xl border border-slate-200/70 shadow-sm">
-          <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Gasto Total Familiar</p>
+          <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Gasto Total ({mesSeleccionado})</p>
           <h3 className="text-3xl font-extrabold mt-1 text-slate-800">${totalGeneral.toFixed(2)}</h3>
           <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
             <Users size={14} className="text-slate-400" /> {integrantes.length} miembro(s) • Cuota limpia: ${cuotaPorPersona.toFixed(2)} c/u
@@ -263,9 +298,9 @@ export default function App() {
 
         {tab === 'resumen' && (
           <div className="space-y-2.5">
-            <h4 className="text-[11px] font-bold text-slate-400 tracking-wider uppercase px-1">Distribución por Categorías</h4>
+            <h4 className="text-[11px] font-bold text-slate-400 tracking-wider uppercase px-1">Distribución del Mes</h4>
             {categorias.map(cat => {
-              const totalCat = gastos
+              const totalCat = gastosMesSeleccionado
                 .filter(g => g.categoria_id === cat.id)
                 .reduce((s, g) => s + Number(g.monto), 0)
               const pct = totalGeneral > 0 ? (totalCat / totalGeneral) * 100 : 0
@@ -296,7 +331,7 @@ export default function App() {
 
         {tab === 'deudas' && (
           <div className="space-y-2.5">
-            <h4 className="text-[11px] font-bold text-slate-400 tracking-wider uppercase px-1">Saldos por Integrante</h4>
+            <h4 className="text-[11px] font-bold text-slate-400 tracking-wider uppercase px-1">Saldos del Mes en Curso</h4>
             {balances.map(b => (
               <div key={b.id} className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm flex justify-between items-center">
                 <div>
@@ -316,29 +351,57 @@ export default function App() {
         )}
 
         {tab === 'historial' && (
-          <div className="space-y-2.5">
-            <h4 className="text-[11px] font-bold text-slate-400 tracking-wider uppercase px-1">Registro de Transacciones</h4>
-            {gastos.map(g => (
-              <div key={g.id} className="bg-white p-3.5 rounded-2xl border border-slate-200/60 shadow-sm flex justify-between items-center">
-                <div className="space-y-0.5">
-                  <p className="text-sm font-medium text-slate-800">{g.descripcion || g.categorias?.nombre || 'Gasto'}</p>
-                  <p className="text-[11px] text-slate-400">{g.perfiles?.nombre} • {g.fecha}</p>
-                </div>
-                <span className="font-bold text-sm text-slate-800">${Number(g.monto).toFixed(2)}</span>
+          <div className="space-y-4">
+            {/* Resumen de los últimos 3 meses */}
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm space-y-3">
+              <h4 className="text-[11px] font-bold text-slate-400 tracking-wider uppercase flex items-center gap-1.5">
+                <TrendingUp size={14} /> Resumen de los Últimos 3 Meses
+              </h4>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                {ultimos3Meses.map(m => {
+                  const totalMes = gastos
+                    .filter(g => g.fecha && g.fecha.startsWith(m))
+                    .reduce((s, g) => s + Number(g.monto), 0)
+                  return (
+                    <div key={m} className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 block font-medium">{m}</span>
+                      <span className="text-xs font-bold text-slate-800 mt-0.5 block">${totalMes.toFixed(2)}</span>
+                    </div>
+                  )
+                })}
               </div>
-            ))}
+            </div>
+
+            <div className="space-y-2.5">
+              <h4 className="text-[11px] font-bold text-slate-400 tracking-wider uppercase px-1">
+                Transacciones de {mesSeleccionado}
+              </h4>
+              {gastosMesSeleccionado.length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-6 bg-white rounded-2xl border border-slate-200/60">No hay gastos registrados en este mes.</p>
+              ) : (
+                gastosMesSeleccionado.map(g => (
+                  <div key={g.id} className="bg-white p-3.5 rounded-2xl border border-slate-200/60 shadow-sm flex justify-between items-center">
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-medium text-slate-800">{g.descripcion || g.categorias?.nombre || 'Gasto'}</p>
+                      <p className="text-[11px] text-slate-400">{g.perfiles?.nombre} • {g.fecha}</p>
+                    </div>
+                    <span className="font-bold text-sm text-slate-800">${Number(g.monto).toFixed(2)}</span>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Botón Flotante Minimalista */}
+      {/* Botón Flotante */}
       <button 
         onClick={() => setModalGasto(true)} 
         className="sticky bottom-6 left-[calc(100%-4rem)] bg-slate-800 hover:bg-slate-900 text-white p-4 rounded-full shadow-lg transition-transform active:scale-95 flex items-center justify-center z-20 ml-auto">
         <Plus size={24} />
       </button>
 
-      {/* Modal Pastel */}
+      {/* Modal */}
       {modalGasto && (
         <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-30 flex items-end sm:items-center justify-center p-4">
           <div className="bg-white border border-slate-200/80 w-full max-w-md rounded-3xl p-6 space-y-4 shadow-xl">
