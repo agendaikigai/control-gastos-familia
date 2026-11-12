@@ -3,13 +3,13 @@ import { supabase } from './supabaseClient'
 import { CATEGORIAS_DEFECTO } from './seedData'
 import { 
   Plus, Users, DollarSign, PieChart as PieChartIcon, 
-  ArrowRightLeft, LogOut, Car, ShoppingCart, 
-  GraduationCap, Utensils, BookOpen, Pizza, Home, HeartPulse, Calendar, TrendingUp 
+  LogOut, Car, ShoppingCart, GraduationCap, Utensils, 
+  BookOpen, Pizza, Home, HeartPulse, Calendar, TrendingUp, Building2 
 } from 'lucide-react'
 
 const ICON_MAP = {
   ShoppingCart, GraduationCap, Utensils, BookOpen, 
-  Pizza, Car, Home, HeartPulse
+  Pizza, Car, Home, HeartPulse, Building2
 }
 
 export default function App() {
@@ -37,7 +37,6 @@ export default function App() {
   const [descripcion, setDescripcion] = useState('')
   const [categoriaId, setCategoriaId] = useState('')
 
-  // Leer si viene un código en la URL al cargar (Ej: ?codigo=ABC123)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const codigoUrl = params.get('codigo')
@@ -217,15 +216,14 @@ export default function App() {
   }
 
   const gastosMesSeleccionado = gastos.filter(g => g.fecha && g.fecha.startsWith(mesSeleccionado))
-
   const totalGeneral = gastosMesSeleccionado.reduce((sum, g) => sum + Number(g.monto), 0)
-  const cuotaPorPersona = integrantes.length ? totalGeneral / integrantes.length : 0
 
-  const balances = integrantes.map(int => {
-    const pagado = gastosMesSeleccionado
-      .filter(g => g.pagado_por === int.id)
-      .reduce((sum, g) => sum + Number(g.monto), 0)
-    return { ...int, pagado, balance: pagado - cuotaPorPersona }
+  // Cálculo del gasto individual por cada integrante
+  const gastosPorIntegrante = integrantes.map(int => {
+    const transaccionesInt = gastosMesSeleccionado.filter(g => g.pagado_por === int.id)
+    const gastado = transaccionesInt.reduce((sum, g) => sum + Number(g.monto), 0)
+    const porcentaje = totalGeneral > 0 ? (gastado / totalGeneral) * 100 : 0
+    return { ...int, gastado, cantidad: transaccionesInt.length, porcentaje }
   })
 
   function obtenerUltimosTresMeses() {
@@ -241,8 +239,6 @@ export default function App() {
   }
 
   const ultimos3Meses = obtenerUltimosTresMeses()
-
-  // Enlace mágico para compartir con la familia
   const enlaceInvitacion = `${window.location.origin}?codigo=${grupo?.codigo_invitacion || ''}`
 
   if (!grupo || !miembro) {
@@ -274,7 +270,7 @@ export default function App() {
                 required 
                 value={nombreUsuario} 
                 onChange={e => setNombreUsuario(e.target.value)}
-                placeholder="Ej: Papa, Mama, Carlos..." 
+                placeholder="Ej: Papá, Mamá, Carlos..." 
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-300 transition"
               />
             </div>
@@ -359,8 +355,8 @@ export default function App() {
         <button onClick={() => setTab('resumen')} className={`flex-1 py-3 text-xs font-semibold flex items-center justify-center gap-1.5 border-b-2 transition ${tab === 'resumen' ? 'border-slate-800 text-slate-800' : 'border-transparent text-slate-400'}`}>
           <PieChartIcon size={16} /> Categorías
         </button>
-        <button onClick={() => setTab('deudas')} className={`flex-1 py-3 text-xs font-semibold flex items-center justify-center gap-1.5 border-b-2 transition ${tab === 'deudas' ? 'border-slate-800 text-slate-800' : 'border-transparent text-slate-400'}`}>
-          <ArrowRightLeft size={16} /> Saldos
+        <button onClick={() => setTab('integrantes')} className={`flex-1 py-3 text-xs font-semibold flex items-center justify-center gap-1.5 border-b-2 transition ${tab === 'integrantes' ? 'border-slate-800 text-slate-800' : 'border-transparent text-slate-400'}`}>
+          <Users size={16} /> Integrantes
         </button>
         <button onClick={() => setTab('historial')} className={`flex-1 py-3 text-xs font-semibold flex items-center justify-center gap-1.5 border-b-2 transition ${tab === 'historial' ? 'border-slate-800 text-slate-800' : 'border-transparent text-slate-400'}`}>
           <DollarSign size={16} /> Historial
@@ -369,9 +365,9 @@ export default function App() {
 
       {/* Cuerpo */}
       <div className="p-4 space-y-4">
-       {/* Total General Card */}
+        {/* Total General Card */}
         <div className="bg-white p-5 rounded-3xl border border-slate-200/70 shadow-sm">
-          <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Gasto Total ({mesSeleccionado})</p>
+          <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Gasto Total Familiar ({mesSeleccionado})</p>
           <div className="flex items-baseline justify-between mt-1">
             <h3 className="text-3xl font-extrabold text-slate-800">${totalGeneral.toFixed(2)}</h3>
             <span className="text-sm font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg">
@@ -379,11 +375,7 @@ export default function App() {
             </span>
           </div>
           
-          <p className="text-xs text-slate-500 mt-2.5 flex items-center gap-1">
-            <Users size={14} className="text-slate-400" /> {integrantes.length} miembro(s) • Cuota: ${cuotaPorPersona.toFixed(2)} (Bs. {formatearBs(cuotaPorPersona)})
-          </p>
-
-          {/* Etiquetas con los nombres de los integrantes */}
+          {/* Etiquetas rápidas de miembros conectados */}
           <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-slate-100">
             {integrantes.map(int => (
               <span 
@@ -401,7 +393,7 @@ export default function App() {
 
         {tab === 'resumen' && (
           <div className="space-y-2.5">
-            <h4 className="text-[11px] font-bold text-slate-400 tracking-wider uppercase px-1">Distribución del Mes</h4>
+            <h4 className="text-[11px] font-bold text-slate-400 tracking-wider uppercase px-1">Distribución por Categoría</h4>
             {categorias.map(cat => {
               const totalCat = gastosMesSeleccionado
                 .filter(g => g.categoria_id === cat.id)
@@ -435,35 +427,31 @@ export default function App() {
           </div>
         )}
 
-        {tab === 'deudas' && (
+        {tab === 'integrantes' && (
           <div className="space-y-2.5">
-            <h4 className="text-[11px] font-bold text-slate-400 tracking-wider uppercase px-1">Saldos del Mes en Curso</h4>
-            {balances.map(b => (
-              <div key={b.id} className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm flex justify-between items-center">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-sm text-slate-800">{b.nombre}</p>
-                    <button 
-                      onClick={() => eliminarIntegrante(b.id, b.nombre)}
-                      className="text-slate-300 hover:text-rose-500 transition p-1"
-                      title="Eliminar integrante">
-                      ✕
-                    </button>
+            <h4 className="text-[11px] font-bold text-slate-400 tracking-wider uppercase px-1">Gasto Total por Familiar ({mesSeleccionado})</h4>
+            {gastosPorIntegrante.map(int => (
+              <div key={int.id} className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm space-y-2.5">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-sm text-slate-800">{int.nombre}</p>
+                      <button 
+                        onClick={() => eliminarIntegrante(int.id, int.nombre)}
+                        className="text-slate-300 hover:text-rose-500 transition p-1"
+                        title="Eliminar integrante">
+                        ✕
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-400">{int.cantidad} registro(s) • {int.porcentaje.toFixed(1)}% del total</p>
                   </div>
-                  <p className="text-xs text-slate-400">Aportó: ${b.pagado.toFixed(2)} (Bs. {formatearBs(b.pagado)})</p>
+                  <div className="text-right">
+                    <span className="text-slate-800 text-base font-extrabold block">${int.gastado.toFixed(2)}</span>
+                    <span className="text-[11px] text-emerald-600 font-semibold block">Bs. {formatearBs(int.gastado)}</span>
+                  </div>
                 </div>
-                <div className="text-right">
-                  {b.balance >= 0 ? (
-                    <div>
-                      <span className="text-emerald-600 text-sm font-bold block">+${b.balance.toFixed(2)}</span>
-                      <span className="text-[10px] text-emerald-600/80 font-medium block">Bs. {formatearBs(b.balance)} (A favor)</span>
-                    </div>
-                  ) : (
-                    <div>
-                      <span className="text-rose-500 text-sm font-bold block">-${Math.abs(b.balance).toFixed(2)}</span>
-                      <span className="text-[10px] text-rose-500/80 font-medium block">Bs. {formatearBs(Math.abs(b.balance))} (Debe)</span>
-                    </div>
-                  )}
+                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                  <div className="h-full bg-slate-800 transition-all duration-500 rounded-full" style={{ width: `${int.porcentaje}%` }} />
                 </div>
               </div>
             ))}

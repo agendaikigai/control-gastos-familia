@@ -1,10 +1,11 @@
 export const CATEGORIAS_DEFECTO = [
-  { nombre: 'Supermercado', icono: 'ShoppingCart', color: '#86EFAC' },   // Verde pastel
-  { nombre: 'Colegio', icono: 'GraduationCap', color: '#93C5FD' },        // Azul pastel
-  { nombre: 'Cantina', icono: 'Utensils', color: '#FDE047' },            // Amarillo suave
-  { nombre: 'Universidad', icono: 'BookOpen', color: '#C084FC' },        // Purpura pastel
-  { nombre: 'Restaurantes', icono: 'Pizza', color: '#FCA5A5' },          // Rojo/Rosa suave
-  { nombre: 'Vehículo / Gasolina', icono: 'Car', color: '#94A3B8' },     // Gris pizarra suave
-  { nombre: 'Servicios / Hogar', icono: 'Home', color: '#6EE7B7' },       // Menta pastel
-  { nombre: 'Salud / Farmacia', icono: 'HeartPulse', color: '#F472B6' }   // Rosa pastel
+  { nombre: 'Supermercado', icono: 'ShoppingCart', color: '#86efac' },
+  { nombre: 'Alquiler / Vivienda', icono: 'Building2', color: '#fde047' },
+  { nombre: 'Colegio', icono: 'GraduationCap', color: '#93c5fd' },
+  { nombre: 'Cantina', icono: 'Utensils', color: '#fcd34d' },
+  { nombre: 'Universidad', icono: 'BookOpen', color: '#d8b4fe' },
+  { nombre: 'Restaurantes', icono: 'Pizza', color: '#fca5a5' },
+  { nombre: 'Vehículo / Gasolina', icono: 'Car', color: '#cbd5e1' },
+  { nombre: 'Servicios / Hogar', icono: 'Home', color: '#6ee7b7' },
+  { nombre: 'Salud / Farmacia', icono: 'HeartPulse', color: '#f9a8d4' }
 ]
