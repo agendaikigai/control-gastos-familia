@@ -26,10 +26,8 @@ export default function App() {
   const [integrantes, setIntegrantes] = useState([])
   const [tab, setTab] = useState('resumen')
 
-  // Estado para la tasa del Dólar BCV automática
   const [tasaBcv, setTasaBcv] = useState(null)
 
-  // Mes seleccionado para filtrar (Formato YYYY-MM)
   const mesActualStr = new Date().toISOString().slice(0, 7)
   const [mesSeleccionado, setMesSeleccionado] = useState(mesActualStr)
 
@@ -39,7 +37,14 @@ export default function App() {
   const [descripcion, setDescripcion] = useState('')
   const [categoriaId, setCategoriaId] = useState('')
 
+  // Leer si viene un código en la URL al cargar (Ej: ?codigo=ABC123)
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const codigoUrl = params.get('codigo')
+    if (codigoUrl && !grupo) {
+      setCodigoGrupo(codigoUrl.toUpperCase())
+      setModoCrear(false)
+    }
     obtenerTasaBCV()
   }, [])
 
@@ -65,7 +70,7 @@ export default function App() {
         setTasaBcv(Number(data.promedio))
       }
     } catch (error) {
-      console.error('Error al obtener tasa BCV automática:', error)
+      console.error('Error al obtener tasa BCV:', error)
     }
   }
 
@@ -154,6 +159,7 @@ export default function App() {
     localStorage.clear()
     setMiembro(null)
     setGrupo(null)
+    window.history.replaceState({}, document.title, window.location.pathname)
   }
 
   function manejarCambioUsd(val) {
@@ -236,6 +242,9 @@ export default function App() {
 
   const ultimos3Meses = obtenerUltimosTresMeses()
 
+  // Enlace mágico para compartir con la familia
+  const enlaceInvitacion = `${window.location.origin}?codigo=${grupo?.codigo_invitacion || ''}`
+
   if (!grupo || !miembro) {
     return (
       <div className="min-h-screen bg-slate-100 text-slate-800 flex items-center justify-center p-4">
@@ -309,10 +318,16 @@ export default function App() {
       <header className="p-4 bg-white/90 backdrop-blur border-b border-slate-200/60 sticky top-0 z-10 flex justify-between items-center">
         <div>
           <h2 className="font-bold text-base text-slate-800">{grupo.nombre}</h2>
-          <p className="text-xs text-indigo-500 font-mono">Código: {grupo.codigo_invitacion}</p>
+          <button 
+            onClick={() => {
+              navigator.clipboard.writeText(enlaceInvitacion)
+              alert('¡Enlace de invitación copiado al portapapeles!')
+            }}
+            className="text-[11px] text-indigo-600 font-mono hover:underline block text-left">
+            Copiar Enlace Mágico 🔗
+          </button>
         </div>
         
-        {/* Tablero Tasa BCV Automática (Solo visible) */}
         <div className="flex items-center gap-2">
           <div className="bg-emerald-50 border border-emerald-200/70 px-3 py-1.5 rounded-xl text-right">
             <span className="text-[9px] font-bold text-emerald-600 uppercase block leading-none">Tasa BCV</span>
