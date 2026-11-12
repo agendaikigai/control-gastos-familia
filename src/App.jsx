@@ -26,14 +26,22 @@ export default function App() {
   const [integrantes, setIntegrantes] = useState([])
   const [tab, setTab] = useState('resumen')
 
-  // Mes seleccionado para filtrar (Formato YYYY-MM). Por defecto el mes actual.
+  // Estado para la tasa del Dólar BCV automática
+  const [tasaBcv, setTasaBcv] = useState(null)
+
+  // Mes seleccionado para filtrar (Formato YYYY-MM)
   const mesActualStr = new Date().toISOString().slice(0, 7)
   const [mesSeleccionado, setMesSeleccionado] = useState(mesActualStr)
 
   const [modalGasto, setModalGasto] = useState(false)
   const [monto, setMonto] = useState('')
+  const [montoBsInput, setMontoBsInput] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [categoriaId, setCategoriaId] = useState('')
+
+  useEffect(() => {
+    obtenerTasaBCV()
+  }, [])
 
   useEffect(() => {
     if (grupo?.id) {
@@ -48,6 +56,24 @@ export default function App() {
       return () => { supabase.removeChannel(canal) }
     }
   }, [grupo?.id])
+
+  async function obtenerTasaBCV() {
+    try {
+      const res = await fetch('https://ve.dolarapi.com/v1/dolares/oficial')
+      const data = await res.json()
+      if (data && data.promedio) {
+        setTasaBcv(Number(data.promedio))
+      }
+    } catch (error) {
+      console.error('Error al obtener tasa BCV automática:', error)
+    }
+  }
+
+  function formatearBs(montoUsd) {
+    if (!tasaBcv) return '---'
+    const totalBs = Number(montoUsd) * tasaBcv
+    return totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  }
 
   async function cargarTodo() {
     await Promise.all([cargarGastos(), cargarCategorias(), cargarIntegrantes()])
@@ -130,6 +156,24 @@ export default function App() {
     setGrupo(null)
   }
 
+  function manejarCambioUsd(val) {
+    setMonto(val)
+    if (val && tasaBcv) {
+      setMontoBsInput((parseFloat(val) * tasaBcv).toFixed(2))
+    } else {
+      setMontoBsInput('')
+    }
+  }
+
+  function manejarCambioBs(val) {
+    setMontoBsInput(val)
+    if (val && tasaBcv) {
+      setMonto((parseFloat(val) / tasaBcv).toFixed(2))
+    } else {
+      setMonto('')
+    }
+  }
+
   async function guardarGasto(e) {
     e.preventDefault()
     if (!monto || !categoriaId) return
@@ -144,12 +188,28 @@ export default function App() {
     }])
 
     setMonto('')
+    setMontoBsInput('')
     setDescripcion('')
     setModalGasto(false)
     cargarGastos()
   }
 
-  // Filtrar gastos del mes seleccionado actualmente en la vista principal
+  async function eliminarIntegrante(idPerfil, nombrePerfil) {
+    const confirmar = window.confirm(`¿Estás seguro de eliminar a "${nombrePerfil}" del grupo?`)
+    if (!confirmar) return
+
+    const { error } = await supabase
+      .from('perfiles')
+      .delete()
+      .eq('id', idPerfil)
+
+    if (error) {
+      alert('Error al eliminar integrante: ' + error.message)
+    } else {
+      cargarIntegrantes()
+    }
+  }
+
   const gastosMesSeleccionado = gastos.filter(g => g.fecha && g.fecha.startsWith(mesSeleccionado))
 
   const totalGeneral = gastosMesSeleccionado.reduce((sum, g) => sum + Number(g.monto), 0)
@@ -162,7 +222,6 @@ export default function App() {
     return { ...int, pagado, balance: pagado - cuotaPorPersona }
   })
 
-  // Obtener los últimos 3 meses para el resumen comparativo
   function obtenerUltimosTresMeses() {
     const meses = []
     const fechaBase = new Date()
@@ -177,7 +236,6 @@ export default function App() {
 
   const ultimos3Meses = obtenerUltimosTresMeses()
 
-  // Pantalla de Ingreso / Login
   if (!grupo || !miembro) {
     return (
       <div className="min-h-screen bg-slate-100 text-slate-800 flex items-center justify-center p-4">
@@ -245,7 +303,6 @@ export default function App() {
     )
   }
 
-  // Interfaz Principal
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 pb-24 max-w-md mx-auto relative border-x border-slate-200/60 shadow-sm">
       {/* Header */}
@@ -254,9 +311,19 @@ export default function App() {
           <h2 className="font-bold text-base text-slate-800">{grupo.nombre}</h2>
           <p className="text-xs text-indigo-500 font-mono">Código: {grupo.codigo_invitacion}</p>
         </div>
-        <button onClick={cerrarSesion} className="p-2 text-slate-400 hover:text-rose-500 transition">
-          <LogOut size={18} />
-        </button>
+        
+        {/* Tablero Tasa BCV Automática (Solo visible) */}
+        <div className="flex items-center gap-2">
+          <div className="bg-emerald-50 border border-emerald-200/70 px-3 py-1.5 rounded-xl text-right">
+            <span className="text-[9px] font-bold text-emerald-600 uppercase block leading-none">Tasa BCV</span>
+            <span className="text-xs font-extrabold text-emerald-800">
+              {tasaBcv ? `Bs. ${tasaBcv.toFixed(2)}` : 'Cargando...'}
+            </span>
+          </div>
+          <button onClick={cerrarSesion} className="p-2 text-slate-400 hover:text-rose-500 transition" title="Salir">
+            <LogOut size={18} />
+          </button>
+        </div>
       </header>
 
       {/* Selector de Mes Global */}
@@ -290,9 +357,14 @@ export default function App() {
         {/* Total General Card */}
         <div className="bg-white p-5 rounded-3xl border border-slate-200/70 shadow-sm">
           <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Gasto Total ({mesSeleccionado})</p>
-          <h3 className="text-3xl font-extrabold mt-1 text-slate-800">${totalGeneral.toFixed(2)}</h3>
-          <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
-            <Users size={14} className="text-slate-400" /> {integrantes.length} miembro(s) • Cuota limpia: ${cuotaPorPersona.toFixed(2)} c/u
+          <div className="flex items-baseline justify-between mt-1">
+            <h3 className="text-3xl font-extrabold text-slate-800">${totalGeneral.toFixed(2)}</h3>
+            <span className="text-sm font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg">
+              Bs. {formatearBs(totalGeneral)}
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-2.5 flex items-center gap-1">
+            <Users size={14} className="text-slate-400" /> {integrantes.length} miembro(s) • Cuota: ${cuotaPorPersona.toFixed(2)} (Bs. {formatearBs(cuotaPorPersona)})
           </p>
         </div>
 
@@ -313,11 +385,14 @@ export default function App() {
                       <div className="p-2.5 rounded-xl flex items-center justify-center text-slate-700" style={{ backgroundColor: cat.color }}>
                         <IconComponent size={18} />
                       </div>
-                      <span className="text-sm font-semibold text-slate-700">{cat.nombre}</span>
+                      <div>
+                        <span className="text-sm font-semibold text-slate-700 block">{cat.nombre}</span>
+                        <span className="text-[11px] text-slate-400 font-medium">{pct.toFixed(1)}% del total</span>
+                      </div>
                     </div>
                     <div className="text-right">
                       <span className="text-sm font-bold text-slate-800 block">${totalCat.toFixed(2)}</span>
-                      <span className="text-[11px] text-slate-400 font-medium">{pct.toFixed(1)}%</span>
+                      <span className="text-[11px] text-emerald-600 font-semibold block">Bs. {formatearBs(totalCat)}</span>
                     </div>
                   </div>
                   <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
@@ -335,14 +410,28 @@ export default function App() {
             {balances.map(b => (
               <div key={b.id} className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm flex justify-between items-center">
                 <div>
-                  <p className="font-semibold text-sm text-slate-800">{b.nombre}</p>
-                  <p className="text-xs text-slate-400">Aportó: ${b.pagado.toFixed(2)}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-sm text-slate-800">{b.nombre}</p>
+                    <button 
+                      onClick={() => eliminarIntegrante(b.id, b.nombre)}
+                      className="text-slate-300 hover:text-rose-500 transition p-1"
+                      title="Eliminar integrante">
+                      ✕
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-400">Aportó: ${b.pagado.toFixed(2)} (Bs. {formatearBs(b.pagado)})</p>
                 </div>
                 <div className="text-right">
                   {b.balance >= 0 ? (
-                    <span className="text-emerald-600 text-sm font-bold block">+${b.balance.toFixed(2)} <span className="text-[10px] block font-normal text-slate-400">A favor</span></span>
+                    <div>
+                      <span className="text-emerald-600 text-sm font-bold block">+${b.balance.toFixed(2)}</span>
+                      <span className="text-[10px] text-emerald-600/80 font-medium block">Bs. {formatearBs(b.balance)} (A favor)</span>
+                    </div>
                   ) : (
-                    <span className="text-rose-500 text-sm font-bold block">-${Math.abs(b.balance).toFixed(2)} <span className="text-[10px] block font-normal text-slate-400">Debe</span></span>
+                    <div>
+                      <span className="text-rose-500 text-sm font-bold block">-${Math.abs(b.balance).toFixed(2)}</span>
+                      <span className="text-[10px] text-rose-500/80 font-medium block">Bs. {formatearBs(Math.abs(b.balance))} (Debe)</span>
+                    </div>
                   )}
                 </div>
               </div>
@@ -366,6 +455,7 @@ export default function App() {
                     <div key={m} className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                       <span className="text-[10px] text-slate-400 block font-medium">{m}</span>
                       <span className="text-xs font-bold text-slate-800 mt-0.5 block">${totalMes.toFixed(2)}</span>
+                      <span className="text-[9px] text-emerald-600 font-medium block">Bs. {formatearBs(totalMes)}</span>
                     </div>
                   )
                 })}
@@ -385,7 +475,10 @@ export default function App() {
                       <p className="text-sm font-medium text-slate-800">{g.descripcion || g.categorias?.nombre || 'Gasto'}</p>
                       <p className="text-[11px] text-slate-400">{g.perfiles?.nombre} • {g.fecha}</p>
                     </div>
-                    <span className="font-bold text-sm text-slate-800">${Number(g.monto).toFixed(2)}</span>
+                    <div className="text-right">
+                      <span className="font-bold text-sm text-slate-800 block">${Number(g.monto).toFixed(2)}</span>
+                      <span className="text-[11px] text-emerald-600 font-medium block">Bs. {formatearBs(g.monto)}</span>
+                    </div>
                   </div>
                 ))
               )}
@@ -411,19 +504,39 @@ export default function App() {
             </div>
 
             <form onSubmit={guardarGasto} className="space-y-4">
-              <div>
-                <label className="text-xs text-slate-500 font-medium block mb-1">Monto ($)</label>
-                <input 
-                  type="number" 
-                  step="0.01" 
-                  required 
-                  autoFocus
-                  value={monto} 
-                  onChange={e => setMonto(e.target.value)}
-                  placeholder="0.00" 
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xl font-bold text-slate-800 focus:outline-none focus:bg-white focus:border-indigo-300 transition"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-slate-500 font-medium block mb-1">Monto en Dólares ($)</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    required 
+                    autoFocus
+                    value={monto} 
+                    onChange={e => manejarCambioUsd(e.target.value)}
+                    placeholder="0.00" 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-3 text-lg font-bold text-slate-800 focus:outline-none focus:bg-white focus:border-indigo-300 transition"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-emerald-600 font-medium block mb-1">Monto en Bolívares (Bs.)</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    value={montoBsInput} 
+                    onChange={e => manejarCambioBs(e.target.value)}
+                    placeholder="0.00" 
+                    disabled={!tasaBcv}
+                    className="w-full bg-emerald-50/50 border border-emerald-200/80 rounded-2xl px-3.5 py-3 text-lg font-bold text-emerald-800 focus:outline-none focus:bg-white focus:border-emerald-400 transition"
+                  />
+                </div>
               </div>
+
+              {tasaBcv && (
+                <p className="text-[11px] text-slate-400 text-center bg-slate-50 py-1.5 rounded-xl">
+                  Conversión automática a tasa BCV: <strong className="text-slate-600">Bs. {tasaBcv.toFixed(2)}</strong>
+                </p>
+              )}
 
               <div>
                 <label className="text-xs text-slate-500 font-medium block mb-1">Categoría</label>
