@@ -369,7 +369,7 @@ export default function App() {
 
       {/* Cuerpo */}
       <div className="p-4 space-y-4">
-        {/* Total General Card */}
+       {/* Total General Card */}
         <div className="bg-white p-5 rounded-3xl border border-slate-200/70 shadow-sm">
           <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Gasto Total ({mesSeleccionado})</p>
           <div className="flex items-baseline justify-between mt-1">
@@ -378,9 +378,25 @@ export default function App() {
               Bs. {formatearBs(totalGeneral)}
             </span>
           </div>
+          
           <p className="text-xs text-slate-500 mt-2.5 flex items-center gap-1">
             <Users size={14} className="text-slate-400" /> {integrantes.length} miembro(s) • Cuota: ${cuotaPorPersona.toFixed(2)} (Bs. {formatearBs(cuotaPorPersona)})
           </p>
+
+          {/* Etiquetas con los nombres de los integrantes */}
+          <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-slate-100">
+            {integrantes.map(int => (
+              <span 
+                key={int.id} 
+                className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium ${
+                  int.id === miembro.id 
+                    ? 'bg-slate-800 text-white' 
+                    : 'bg-slate-100 text-slate-600'
+                }`}>
+                {int.nombre} {int.id === miembro.id && '(Tú)'}
+              </span>
+            ))}
+          </div>
         </div>
 
         {tab === 'resumen' && (
