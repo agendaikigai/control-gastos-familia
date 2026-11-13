@@ -104,7 +104,8 @@ export default function App() {
 
   async function manejarIngreso(e) {
     e.preventDefault()
-    if (!nombreUsuario.trim()) return
+    const nombreLimpio = nombreUsuario.trim()
+    if (!nombreLimpio) return
 
     if (modoCrear) {
       const codigoGenerado = Math.random().toString(36).substring(2, 8).toUpperCase()
@@ -120,7 +121,7 @@ export default function App() {
 
         const { data: nuevoPerfil } = await supabase
           .from('perfiles')
-          .insert([{ nombre: nombreUsuario, grupo_id: nuevoGrupo.id }])
+          .insert([{ nombre: nombreLimpio, grupo_id: nuevoGrupo.id }])
           .select()
           .single()
 
@@ -134,13 +135,27 @@ export default function App() {
         .single()
 
       if (grupoExistente) {
-        const { data: nuevoPerfil } = await supabase
+        // 1. Verificar si ya existe un integrante con ese mismo nombre en el grupo
+        const { data: perfilExistente } = await supabase
           .from('perfiles')
-          .insert([{ nombre: nombreUsuario, grupo_id: grupoExistente.id }])
-          .select()
-          .single()
+          .select('*')
+          .eq('grupo_id', grupoExistente.id)
+          .ilike('nombre', nombreLimpio)
+          .maybeSingle()
 
-        guardarSesion(nuevoPerfil, grupoExistente)
+        if (perfilExistente) {
+          // Si ya existe, iniciamos sesión directamente con su perfil original
+          guardarSesion(perfilExistente, grupoExistente)
+        } else {
+          // Si es un integrante nuevo, lo creamos
+          const { data: nuevoPerfil } = await supabase
+            .from('perfiles')
+            .insert([{ nombre: nombreLimpio, grupo_id: grupoExistente.id }])
+            .select()
+            .single()
+
+          guardarSesion(nuevoPerfil, grupoExistente)
+        }
       } else {
         alert('Código de grupo no encontrado')
       }
